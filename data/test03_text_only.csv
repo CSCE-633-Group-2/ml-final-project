@@ -1,0 +1,169 @@
+row_id,text
+0,"Renal: Foley, Borderline UOP, follow up BUN and Creatinine"
+1,Billing Diagnosis: Acute renal failure
+2,Urine: 380 mL (24 hours)
+3,Creatinine: 1.0 mg/dL
+4,Nutren Renal (Full) - 45 mL/hour
+5,Nephrology consult
+6,Heart rhythm: AF (Atrial Fibrillation)
+7,Cardiovascular: (Rhythm: Irregular)
+8,"Cardiovascular: Beta-blocker, Afib"
+9,HR: 94 (88 - 111) bpm
+10,Metoprolol Tartrate
+11,s/p OLT c/b b/l PTX (?diaphragmatic injury) and fluid management issues secondary to massive ascites
+12,Billing Diagnosis: Post-op complication
+13,Billing Diagnosis: Respiratory distress: Insufficiency / Post-op
+14,s/p R doxy pleurodesis
+15,s/p R talc pleurodesis
+16,Multi Lumen line placed
+17,DM
+18,Glycemic Control: Regular insulin sliding scale
+19,Endocrine: RISS
+20,Glucose: 151 mg/dL
+21,Glucose: 117 mg/dL
+22,Insulin (in medication list)
+23,"EtOH cirrhosis c/b encephalopathy, ascites, splenomegaly"
+24,PSC (Primary Sclerosing Cholangitis)
+25,s/p OLT (orthotopic liver transplant)
+26,?HCC
+27,ALT / AST:13/14
+28,Alk-Phos / T bili:107/0.3
+29,Albumin:2.6 g/dL
+30,b/l PTX (?diaphragmatic injury)
+31,s/p R doxy pleurodesis
+32,s/p R talc pleurodesis
+33,Chest tube - pleural
+34,"OLT, bilateral pleurodesis (chief complaint)"
+35,Respiratory / Chest: (Breath Sounds: Rhonchorous : Bilateral)
+36,O2 Delivery Device: Trach mask
+37,CXR today
+38,"Differential-Neuts:94.0 %, Lymph:1.0 %"
+39,Tmax: 35.8 C (96.5)
+40,WBC: 2.4 - 5.0 K/uL
+41,Lactic Acid:1.1 mmol/L
+42,Fluconazole / Valgancyclovir (antibiotics given)
+43,Heparin Sodium (Prophylaxis)
+44,BP: 101/66(74) {97/50(67) - 129/87(98)} mmHg
+45,Lactic Acid:1.1 mmol/L
+46,Borderline UOP
+47,Urine: 380 mL (24 hours)
+48,Balance: 166 mL (24 hours)
+49,CKD: Cr baseline 2.0.  Currently 2.3 w/ oliguria.
+50,Cr 2.3 w/ oliguria
+51,"continue to monitor renal fx, renally dose meds, avoid nephrotoxins."
+52,"Urine: 2,210 mL (24 hours)"
+53,NovaSource Renal (Full) - 120 mL/hour
+54,Balance: -186 mL (24 hours)
+55,HR: 60 (56 - 85) bpm
+56,Heart rhythm: SR (Sinus Rhythm)
+57,s/p tracheostomy placement with R sided PTX and difficulty with ventilation now s/p chest tube placement and removal
+58,Bronch showed posterior invagination of tracheal tissue blocking trach which improved with increased PEEP
+59,IP advanced trach but did not offer stent based on other comorbidities
+60,admitted from rehab s/p tracheostomy placement with R sided PTX
+61,22 Gauge - line placed
+62,Trach was changed to 12 cm yesterday
+63,DM: RISS with lantus 8u qhs per family's request for change
+64,Glycemic Control: Regular insulin sliding scale
+65,"have changed lantus to qhs, also have changed to 8 units"
+66,Glucose: 138 mg/dL
+67,Glucose: 195 / 288 / 292 / 217 / 93 / 138
+68,Hypernatremia: Increase OG free water flushes now 250cc q4h.
+69,"sodium checked and was 148, free H20 flushes increased from 150cc --> 200cc q4hrs"
+70,147 mEq/L (sodium)
+71,Balance: -186 mL (24 hours)
+72,"Mg++:2.6 mg/dL, PO4:2.9 mg/dL"
+73,Ca++:9.5 mg/dL
+74,BP: 151/68(89) {96/41(54) - 197/86(111)} mmHg
+75,CKD: Cr baseline 2.0.  Currently 2.3 w/ oliguria.
+76,HR: 60 (56 - 85) bpm
+77,CKD: Cr baseline 2.0.  Currently 2.3 w/ oliguria.
+78,Cr 2.0 / 2.0 / 2.1 / 2.1 / 2.3 / 2.4 / 2.3 (trending creatinine)
+79,"continue to monitor renal fx, renally dose meds, avoid nephrotoxins."
+80,NovaSource Renal (Full) - 120 mL/hour
+81,"Urine: 2,210 mL (24 hours)"
+82,O2 Delivery Device: Tracheostomy tube
+83,Ventilator mode: CPAP/PSV
+84,Respiratory distress: s/p tracheostomy replacement at rehab
+85,Right sided PTX improved and CXR stable since CT removed
+86,admitted from rehab s/p tracheostomy placement with R sided PTX
+87,s/p chest tube placement and removal
+88,spontaneous vs. due to vigorous ventilation at rehab vs. right pneumothorax in the setting of recent bronchoscopy
+89,O2 Delivery Device: Tracheostomy tube
+90,Ventilator mode: CPAP/PSV
+91,PEEP: 14 cmH2O
+92,chronic respiratory failure with trach/PEG
+93,Respiratory distress: s/p tracheostomy replacement at rehab
+94,"Continue pressure support trial, attempt PEEP to 14"
+95,Ventilator mode: CPAP/PSV
+96,FiO2: 40%
+97,SpO2: 100%
+98,RR: 20 (14 - 25) insp/min
+99,Urine: 120 mL
+100,"With 2.7 L IVFs, lactate improved to 4.1"
+101,"Total out: 120 mL, Balance: 1,173 mL (positive fluid balance with oliguria)"
+102,Cr: 1.1 mg/dL
+103,BUN: 38 mg/dL
+104,"Genitourinary: No(t) Dysuria, Foley, No(t) Dialysis"
+105,"HR in 70-80s, ?junctional at one point"
+106,"pt was found to be pulseless, received CPR for 20 seconds"
+107,"Possible dysrhythmia, cardiac arrest (less likely) or neurological event"
+108,Heart rhythm: SR (Sinus Rhythm)
+109,HR: 62 (58 - 74) bpm
+110,"Cardiovascular: (S1: Normal), (S2: Normal)"
+111,COPD (per records)
+112,"Ventilator mode: CMV/ASSIST, Vt (Set): 400 mL"
+113,Respiratory / Chest: (Breath Sounds: Clear)
+114,O2 Delivery Device: Endotracheal tube
+115,heavy atherosclerotic disease of coronaries and aorta
+116,cardiomegaly with marked right atrial enlargement
+117,Murmur: Systolic
+118,CK / CKMB / Troponin-T:146/6/0.13
+119,"Cardiovascular: No(t) Chest pain, No(t) Palpitations"
+120,TropT: 0.13
+121,"(Right radial pulse: Present), (Left radial pulse: Present)"
+122,Hypercholesterolemia
+123,heavy atherosclerotic disease of coronaries and aorta
+124,Albumin:2.9 g/dL
+125,Hypertension
+126,Initial blood pressures were up to 224/150 briefly
+127,BP: 125/60(75) {83/47(56) - 125/65(75)} mmHg
+128,then settled in 90s/50s
+129,DVT: Boots(Systemic anticoagulation: None)
+130,hyponatremia (thought [**3-17**] SIADH)
+131,HYPOCALCEMIA -- Replete. Monitor ionized Ca++.
+132,Ca++:6.3 mg/dL
+133,Lactic Acid:2.4 mmol/L
+134,112 mEq/L (chloride)
+135,4.2 mEq/L (potassium)
+136,"Mg++:2.1 mg/dL, PO4:4.0 mg/dL"
+137,LFT ELEVATION -- unclear etiology. Possibly shock liver from hypotension.
+138,"Plan to trend serial LFTs, check amylase, lipase. Consider RUQ U/S."
+139,LDH:1556 IU/L
+140,Alk Phos / T Bili:34/0.6
+141,gallstones
+142,Albumin:2.9 g/dL
+143,"bilateral pleural effusions, R>L (CT torso)"
+144,recently admitted for bilateral pleural effusions
+145,PEEP: 5 cmH2O
+146,Respiratory / Chest: (Breath Sounds: Clear)
+147,RR: 16 (16 - 20) insp/min
+148,"CT torso showed bilateral pleural effusions, R>L"
+149,"recently admitted for weakness, poor po intake, fever, and bilateral pleural effusions"
+150,Respiratory / Chest: (Expansion: Symmetric)
+151,Respiratory / Chest: (Breath Sounds: Clear)
+152,SpO2: 100%
+153,She was diagnosed with pneumonia and treated with levofloxacin
+154,Pt received vanc/zosyn
+155,"No evidence for pneumonia/ infection, sepsis, pulmonary embolism"
+156,No secretions suctioned from ETT
+157,Temp was 99.8 rectally
+158,"Differential-Neuts:85.0 %, Band:0.0 %, Lymph:10.0 %"
+159,RESPIRATORY FAILURE -- unclear precipitant. Intubated for agonal breathing.
+160,pt was noted to have agonal breathing. She was immediately intubated.
+161,PULSELESS ARREST -- Unclear whether related to precipitant for admission
+162,"Plan continue mechanical ventilation, adjust working towards SBT and extubation"
+163,Ventilator mode: CMV/ASSIST
+164,ABG: 7.39/42/77/26/0
+165,SpO2: 100%
+166,PaO2 / FiO2: 154
+167,FiO2: 50%
