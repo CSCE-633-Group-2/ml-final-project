@@ -7,6 +7,7 @@ from nltk.tokenize import wordpunct_tokenize
 import string
 import re
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 import math
 
 def preprocess_text(text):
@@ -64,25 +65,56 @@ class Vocabulary:
         indices = [self.word2idx.get(token, self.word2idx["<unk>"]) for token in tokens]
         return indices
 
-def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', shared_vocab=None):
+class MIMICDataset(Dataset):
     """
-    Load and preprocess the IMDB dataset
+    A dataset for the MIMIC-III dataset
+    """
+    def __init__(self, dataframe, vocabulary, max_len, is_training=True, model_type='lstm'):
+        self.dataframe = dataframe
+        self.vocabulary = vocabulary
+        self.max_len = max_len
+        self.is_training = is_training
+        self.model_type = model_type
+        self.num_samples = len(dataframe)
+            
+    def __len__(self):
+        return self.num_samples
+    
+    def __getitem__(self, idx):
+        text = self.dataframe.iloc[idx]['text']
+        label = self.dataframe.iloc[idx]['label']
+        tokens = preprocess_text(text)
+        indices = self.vocabulary.text_to_indices(tokens, self.max_len, model_type=self.model_type)
+
+        if self.model_type == 'transformer':
+            attention_mask = [1 if index != self.vocabulary.word2idx["<pad>"] else 0 for index in indices]
+            return torch.tensor(indices), torch.tensor(attention_mask), torch.tensor([label])
+        elif self.model_type == 'lstm' or self.model_type == 'rnn':
+            return torch.tensor(indices), torch.tensor([label])
+        else:
+            raise ValueError("Invalid model type. Choose 'lstm' or 'transformer' or 'rnn'.")
+
+def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', shared_vocab=None, max_vocab_size=10000, batch_size=32, max_len=500):
+    """
+    Load and preprocess the MIMIC-III dataset
     
     Args:
         data_path: Path to the data files
-        data_type: Type of data to load ('train' or 'test')
-        model_type: Type of model ('lstm' or 'transformer')
+        data_type: Type of data to load ('train' or 'test' or 'train_val')
+        model_type: Type of model ('lstm' or 'transformer' or 'rnn')
         shared_vocab: Optional vocabulary to use (for test data)
-    
+        max_vocab_size: Maximum size of the vocabulary
+        batch_size: Batch size for the DataLoader
+        max_len: Maximum length of the input sequences
     Returns:
         data_loader: DataLoader for the specified data type
         vocab: Vocabulary object (only returned for train data)
     """
 
-    df = pd.read_parquet(data_path)
+    df = pd.read_csv(data_path)
 
     if shared_vocab is None:
-        vocab = Vocabulary(max_size=10000)
+        vocab = Vocabulary(max_size=max_vocab_size)
         for text in tqdm(df['text']):
             tokens = preprocess_text(text)
             for token in tokens:
@@ -91,7 +123,7 @@ def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', sh
     else:
         vocab = shared_vocab
     
-    max_len = 500
+    max_len = max_len
 
     if data_type == 'train_val':
         train_df, val_df = train_test_split(
@@ -106,16 +138,16 @@ def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', sh
             f"Train samples: {len(train_df)}, Val samples: {len(val_df)}"
         )
 
-        train_loader = DataLoader(IMDBDataset(dataframe=train_df.reset_index(drop=True), vocabulary=vocab, max_len=max_len, is_training=True, model_type=model_type), batch_size=32, shuffle=True)
-        val_loader = DataLoader(IMDBDataset(dataframe=val_df.reset_index(drop=True), vocabulary=vocab, max_len=max_len, is_training=False, model_type=model_type), batch_size=32, shuffle=False)
+        train_loader = DataLoader(MIMICDataset(dataframe=train_df.reset_index(drop=True), vocabulary=vocab, max_len=max_len, is_training=True, model_type=model_type), batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(MIMICDataset(dataframe=val_df.reset_index(drop=True), vocabulary=vocab, max_len=max_len, is_training=False, model_type=model_type), batch_size=batch_size, shuffle=False)
 
         return train_loader, val_loader, vocab
 
     print(f"Data loaded and preprocessed for {data_type} data. Number of samples: {len(df)}")
-    dataset = IMDBDataset(dataframe=df, vocabulary=vocab, max_len=max_len, is_training=(data_type=='train'), model_type=model_type)
-    data_loader = DataLoader(dataset, batch_size=32, shuffle=(data_type=='train'))
+    dataset = MIMICDataset(dataframe=df, vocabulary=vocab, max_len=max_len, is_training=(data_type=='train'), model_type=model_type)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=(data_type=='train'))
 
-    print(f"DataLoader created for {data_type} data with batch size 32.")
+    print(f"DataLoader created for {data_type} data with batch size {batch_size}.")
 
     if data_type == 'train':
         return data_loader, vocab
