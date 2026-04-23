@@ -94,7 +94,7 @@ class MIMICDataset(Dataset):
         else:
             raise ValueError("Invalid model type. Choose 'lstm' or 'transformer' or 'rnn'.")
 
-def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', shared_vocab=None, max_vocab_size=10000, batch_size=32, max_len=500):
+def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', shared_vocab=None, max_vocab_size=10000, batch_size=32, max_len=500, label_path=None):
     """
     Load and preprocess the MIMIC-III dataset
     
@@ -106,12 +106,19 @@ def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', sh
         max_vocab_size: Maximum size of the vocabulary
         batch_size: Batch size for the DataLoader
         max_len: Maximum length of the input sequences
+        label_path: Path to the label file (if different from data_path)
     Returns:
         data_loader: DataLoader for the specified data type
         vocab: Vocabulary object (only returned for train data)
     """
 
     df = pd.read_csv(data_path)
+    if label_path is not None:
+        label_df = pd.read_csv(label_path)
+        if 'prediction' in label_df.columns and 'label' not in label_df.columns:
+            label_df = label_df.rename(columns={'prediction': 'label'})
+        df = df.merge(label_df, on='row_id')
+        
 
     if shared_vocab is None:
         vocab = Vocabulary(max_size=max_vocab_size)
