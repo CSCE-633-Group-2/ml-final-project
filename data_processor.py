@@ -10,9 +10,9 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 import math
 
-def preprocess_text(text):
+def preprocess_text(text : str) -> list:
     """
-    Clean and tokenize text
+    Clean and convert a text string into a list of tokens.
     """
     if isinstance(text, str):
         # Convert to lowercase
@@ -30,7 +30,7 @@ class Vocabulary:
     """
     Build a vocabulary from the word count
     """
-    def __init__(self, max_size):
+    def __init__(self, max_size : int):
         self.max_size = max_size
         # Add <cls> token for transformer classification
         self.word2idx = {"<pad>": 0, "<unk>": 1, "<cls>": 2}
@@ -38,7 +38,7 @@ class Vocabulary:
         self.word_count = {}
         self.size = 3  # Start with pad, unk, and cls tokens
         
-    def add_word(self, word):
+    def add_word(self, word : str):
         self.word_count[word] = self.word_count.get(word, 0) + 1
             
     def build_vocab(self):
@@ -53,7 +53,10 @@ class Vocabulary:
 
         print(f"Vocabulary built with {self.size} words (including special tokens).")
 
-    def text_to_indices(self, tokens, max_len, model_type='lstm'):
+    def text_to_indices(self, tokens : list, max_len : int, model_type : str = 'lstm') -> list[int]:
+        """
+        Convert a list of tokens into a list of token ids.
+        """
         if  model_type == 'transformer':
             tokens =  ["<cls>"] + tokens[:-1]
         
@@ -69,7 +72,7 @@ class MIMICDataset(Dataset):
     """
     A dataset for the MIMIC-III dataset
     """
-    def __init__(self, dataframe, vocabulary, max_len, is_training=True, model_type='lstm'):
+    def __init__(self, dataframe : pd.DataFrame, vocabulary : Vocabulary, max_len : int, is_training : bool = True, model_type : str = 'lstm'):
         self.dataframe = dataframe
         self.vocabulary = vocabulary
         self.max_len = max_len
@@ -77,24 +80,24 @@ class MIMICDataset(Dataset):
         self.model_type = model_type
         self.num_samples = len(dataframe)
             
-    def __len__(self):
+    def __len__(self) -> int:
         return self.num_samples
     
-    def __getitem__(self, idx):
-        text = self.dataframe.iloc[idx]['text']
-        label = self.dataframe.iloc[idx]['label']
-        tokens = preprocess_text(text)
-        indices = self.vocabulary.text_to_indices(tokens, self.max_len, model_type=self.model_type)
+    def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor]:
+        text = self.dataframe.iloc[idx]['text']  # Text data of the sample
+        label = self.dataframe.iloc[idx]['label']  # Sample label
+        tokens = preprocess_text(text)  # Convert text data to list of tokens
+        indices = self.vocabulary.text_to_indices(tokens, self.max_len, model_type=self.model_type)  # Convert to id list
 
         if self.model_type == 'transformer':
             attention_mask = [1 if index != self.vocabulary.word2idx["<pad>"] else 0 for index in indices]
-            return torch.tensor(indices), torch.tensor(attention_mask), torch.tensor([label])
+            return torch.tensor(indices), torch.tensor(attention_mask), torch.tensor([label])  # (features, mask, label) for transformer
         elif self.model_type == 'lstm' or self.model_type == 'rnn':
-            return torch.tensor(indices), torch.tensor([label])
+            return torch.tensor(indices), torch.tensor([label])  # (features, label) for LSTM
         else:
             raise ValueError("Invalid model type. Choose 'lstm' or 'transformer' or 'rnn'.")
 
-def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', shared_vocab=None, max_vocab_size=10000, batch_size=32, max_len=500):
+def load_and_preprocess_data(data_path : str, data_type : str = 'train', model_type : str = 'lstm', shared_vocab : Vocabulary | None = None, max_vocab_size : int = 10000, batch_size : int = 32, max_len : int = 500) -> tuple[DataLoader, DataLoader, Vocabulary] | tuple[DataLoader, Vocabulary] | Vocabulary:
     """
     Load and preprocess the MIMIC-III dataset
     
@@ -115,15 +118,15 @@ def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', sh
 
     if shared_vocab is None:
         vocab = Vocabulary(max_size=max_vocab_size)
+
+        # Generate vocabulary from all the text column data in the dataset
         for text in tqdm(df['text']):
             tokens = preprocess_text(text)
             for token in tokens:
                 vocab.add_word(token)
         vocab.build_vocab()
     else:
-        vocab = shared_vocab
-    
-    max_len = max_len
+        vocab = shared_vocab  # Use provided vocabulary
 
     if data_type == 'train_val':
         train_df, val_df = train_test_split(
