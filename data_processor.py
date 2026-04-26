@@ -97,7 +97,7 @@ class MIMICDataset(Dataset):
         else:
             raise ValueError("Invalid model type. Choose 'lstm' or 'transformer' or 'rnn'.")
 
-def load_and_preprocess_data(data_path : str, data_type : str = 'train', model_type : str = 'lstm', shared_vocab : Vocabulary | None = None, max_vocab_size : int = 10000, batch_size : int = 32, max_len : int = 500) -> tuple[DataLoader, DataLoader, Vocabulary] | tuple[DataLoader, Vocabulary] | Vocabulary:
+def load_and_preprocess_data(data_path : str, data_type : str = 'train', model_type : str = 'lstm', shared_vocab : Vocabulary | None = None, max_vocab_size : int = 10000, batch_size : int = 32, max_len : int = 500) -> tuple[DataLoader, DataLoader, Vocabulary] | tuple[DataLoader, Vocabulary] | DataLoader:
     """
     Load and preprocess the MIMIC-III dataset
     
