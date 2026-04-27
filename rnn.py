@@ -7,6 +7,8 @@ import math
 from tqdm import tqdm
 import string
 import re
+import argparse
+import os
 
 import matplotlib.pyplot as plt
 
@@ -15,6 +17,7 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
         self.rnn = nn.RNN(embedding_dim, hidden_dim, batch_first=True)
+        self.dropout = nn.Dropout(0.25)
         self.fc = nn.Linear(hidden_dim, output_dim)
         
     def forward(self, x, lengths=None):
@@ -28,10 +31,11 @@ class RNN(nn.Module):
         last_valid_timestep = lengths - 1
         last_output = output[batch_indices, last_valid_timestep]
 
+        last_output = self.dropout(last_output)
         out = self.fc(last_output)
         return out
 
-def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=5):
+def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=5, save_model_path="./data/models/rnn.pt"):
     train_loss = []
     train_acc = []
     val_loss = []
@@ -74,7 +78,7 @@ def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=
     if best_state_dict is not None:
         model.load_state_dict(best_state_dict)
 
-    torch.save(model.state_dict(), './data/models/rnn.pt')
+    torch.save(model.state_dict(), save_model_path)
 
 
     return train_loss, train_acc, val_loss, val_acc
@@ -130,32 +134,89 @@ def plot_loss(train_loss, validation_loss, title, save_path="./data/plots/loss_p
     plt.grid()
     plt.savefig(save_path)
 
-def main():
-    vocab_size = 10000
-    max_len = 128
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train and evaluate an RNN text classifier.")
+    parser.add_argument("--vocab-size", type=int, default=10000)
+    parser.add_argument("--max-len", type=int, default=128)
+    parser.add_argument("--embedding-dim", type=int, default=100)
+    parser.add_argument("--hidden-dim", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--train-data-path", type=str, default="./data/mimiciii_training_data.csv")
+    parser.add_argument("--test1-data-path", type=str, default="./data/test01_text_only.csv")
+    parser.add_argument("--test2-data-path", type=str, default="./data/test02_text_only.csv")
+    parser.add_argument("--test3-data-path", type=str, default="./data/test03_text_only.csv")
+    parser.add_argument("--test1-label-path", type=str, default="./data/test01-pred(example).csv")
+    parser.add_argument("--model-path", type=str, default="./data/models/rnn.pt")
+    parser.add_argument("--plot-path", type=str, default="./data/plots/loss_plot_rnn.png")
+    parser.add_argument("--test1-output-path", type=str, default="./data/predictions/test01-pred.csv")
+    parser.add_argument("--test2-output-path", type=str, default="./data/predictions/test02-pred.csv")
+    parser.add_argument("--test3-output-path", type=str, default="./data/predictions/test03-pred.csv")
+    return parser.parse_args()
 
-    train_loader, val_loader, vocab = load_and_preprocess_data('./data/train_data-text_and_labels.csv', data_type='train_val', model_type='rnn', max_vocab_size=vocab_size, batch_size=4, max_len=max_len)
-    test_loader = load_and_preprocess_data('./data/test01_text_only.csv', data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=4, max_len=max_len, label_path='./data/test01-pred(example).csv')
+def main():
+    args = parse_args()
+
+    for path in (
+        args.model_path,
+        args.plot_path,
+        args.test1_output_path,
+        args.test2_output_path,
+        args.test3_output_path,
+    ):
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+
+    train_loader, val_loader, vocab = load_and_preprocess_data(
+        args.train_data_path,
+        data_type='train_val',
+        model_type='rnn',
+        max_vocab_size=args.vocab_size,
+        batch_size=args.batch_size,
+        max_len=args.max_len,
+    )
+    test_loader = load_and_preprocess_data(
+        args.test1_data_path,
+        data_type='test',
+        shared_vocab=vocab,
+        model_type='rnn',
+        batch_size=args.batch_size,
+        max_len=args.max_len,
+        label_path=args.test1_label_path,
+    )
+
+    # Print arguments for verification
+    print("Arguments:")
+    for arg in vars(args):
+        print(f"{arg}: {getattr(args, arg)}")   
+
+    print("------------------------------------------------")
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = RNN(vocab_size=vocab.size, embedding_dim=100, hidden_dim=128, output_dim=1).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    print(f"Using device: {device}")
+
+    model = RNN(vocab_size=vocab.size, embedding_dim=args.embedding_dim, hidden_dim=args.hidden_dim, output_dim=1).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.BCEWithLogitsLoss()
-    train_loss, train_acc, val_loss, val_acc = train(model, train_loader, optimizer, criterion, device, val_loader, num_epochs=20)
+    train_loss, train_acc, val_loss, val_acc = train(model, train_loader, optimizer, criterion, device, val_loader, num_epochs=args.epochs, save_model_path=args.model_path)
     test_loss, test_acc = evaluate(model, test_loader, criterion, device, return_accuracy=True)
-    plot_loss(train_loss, val_loss, title="RNN Loss Curves")
+    plot_loss(train_loss, val_loss, title="RNN Loss Curves", save_path=args.plot_path)
 
     print(f"Best Validation Accuracy: {max(val_acc):.4f}")
     print(f"Test Accuracy: {test_acc:.4f}")
 
-    test_1_loader = load_and_preprocess_data('./data/test01_text_only.csv', data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=4, max_len=max_len)
-    evaluate(model, test_1_loader, criterion, device, save_predictions=True, output_path="./data/predictions/test01-pred.csv")
+    test_1_loader = load_and_preprocess_data(args.test1_data_path, data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=args.batch_size, max_len=args.max_len)
+    evaluate(model, test_1_loader, criterion, device, save_predictions=True, output_path=args.test1_output_path)
 
-    test_2_loader = load_and_preprocess_data('./data/test02_text_only.csv', data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=4, max_len=max_len)
-    evaluate(model, test_2_loader, criterion, device, save_predictions=True, output_path="./data/predictions/test02-pred.csv")
+    test_2_loader = load_and_preprocess_data(args.test2_data_path, data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=args.batch_size, max_len=args.max_len)
+    evaluate(model, test_2_loader, criterion, device, save_predictions=True, output_path=args.test2_output_path)
 
-    test_3_loader = load_and_preprocess_data('./data/test03_text_only.csv', data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=4, max_len=max_len)
-    evaluate(model, test_3_loader, criterion, device, save_predictions=True, output_path="./data/predictions/test03-pred.csv")
+    test_3_loader = load_and_preprocess_data(args.test3_data_path, data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=args.batch_size, max_len=args.max_len)
+    evaluate(model, test_3_loader, criterion, device, save_predictions=True, output_path=args.test3_output_path)
+
+    torch.save(model.state_dict(), args.model_path)
 
 if __name__ == "__main__":
     main()
