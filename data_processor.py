@@ -82,7 +82,7 @@ class MIMICDataset(Dataset):
     
     def __getitem__(self, idx):
         text = self.dataframe.iloc[idx]['text']
-        label = self.dataframe.iloc[idx]['label']
+        label = self.dataframe.iloc[idx]['label'] if 'label' in self.dataframe.columns else -1
         tokens = preprocess_text(text)
         indices = self.vocabulary.text_to_indices(tokens, self.max_len, model_type=self.model_type)
 

@@ -208,3 +208,4 @@ __marimo__/
 
 # Exclude trained models
 data/models/*.pt
+data/physionet.org/*

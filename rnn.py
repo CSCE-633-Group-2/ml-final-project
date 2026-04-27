@@ -79,30 +79,43 @@ def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=
 
     return train_loss, train_acc, val_loss, val_acc
 
-def evaluate(model, iterator, criterion, device, return_accuracy=False):
+def evaluate(model, iterator, criterion, device, return_accuracy=False, save_predictions=False, output_path="./data/predictions/test01-pred.csv"):
     test_loss = []
     correct = 0
     total = 0
     
-    model.eval()
-    with torch.no_grad():
-        for indices, labels in tqdm(iterator):
-            indices, labels = indices.to(device), labels.to(device).squeeze(1)
-            lengths = (indices != 0).sum(dim=1)
-            predictions = model(indices, lengths).squeeze(1)
-            loss = criterion(predictions, labels.float())
-            test_loss.append(loss.item())
+    if  save_predictions:
+        predictions_list = []
+        model.eval()
+        with torch.no_grad():
+            for indices, labels in tqdm(iterator):
+                indices = indices.to(device)
+                lengths = (indices != 0).sum(dim=1)
+                predictions = model(indices, lengths).squeeze(1)
+                predicted_labels = (torch.sigmoid(predictions) >= 0.5).long()
+                predictions_list.extend(predicted_labels.cpu().numpy())
+        pred_df = pd.DataFrame({'row_id': range(len(predictions_list)), 'prediction': predictions_list})
+        pred_df.to_csv(output_path, index=False)
+    else:
+        model.eval()
+        with torch.no_grad():
+            for indices, labels in tqdm(iterator):
+                indices, labels = indices.to(device), labels.to(device).squeeze(1)
+                lengths = (indices != 0).sum(dim=1)
+                predictions = model(indices, lengths).squeeze(1)
+                loss = criterion(predictions, labels.float())
+                test_loss.append(loss.item())
 
-            predicted_labels = (torch.sigmoid(predictions) >= 0.5).long()
-            correct += (predicted_labels == labels.long()).sum().item()
-            total += labels.size(0)
-    
-    mean_loss = float(np.mean(test_loss))
-    accuracy = float(correct / total) if total > 0 else 0.0
+                predicted_labels = (torch.sigmoid(predictions) >= 0.5).long()
+                correct += (predicted_labels == labels.long()).sum().item()
+                total += labels.size(0)
+        
+        mean_loss = float(np.mean(test_loss))
+        accuracy = float(correct / total) if total > 0 else 0.0
 
-    if return_accuracy:
-        return mean_loss, accuracy
-    return mean_loss
+        if return_accuracy:
+            return mean_loss, accuracy
+        return mean_loss
 
 def plot_loss(train_loss, validation_loss, title, save_path="./data/plots/loss_plot_rnn.png"):
     epochs = range(1, len(train_loss) + 1)
@@ -134,6 +147,15 @@ def main():
 
     print(f"Best Validation Accuracy: {max(val_acc):.4f}")
     print(f"Test Accuracy: {test_acc:.4f}")
+
+    test_1_loader = load_and_preprocess_data('./data/test01_text_only.csv', data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=4, max_len=max_len)
+    evaluate(model, test_1_loader, criterion, device, save_predictions=True, output_path="./data/predictions/test01-pred.csv")
+
+    test_2_loader = load_and_preprocess_data('./data/test02_text_only.csv', data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=4, max_len=max_len)
+    evaluate(model, test_2_loader, criterion, device, save_predictions=True, output_path="./data/predictions/test02-pred.csv")
+
+    test_3_loader = load_and_preprocess_data('./data/test03_text_only.csv', data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=4, max_len=max_len)
+    evaluate(model, test_3_loader, criterion, device, save_predictions=True, output_path="./data/predictions/test03-pred.csv")
 
 if __name__ == "__main__":
     main()
