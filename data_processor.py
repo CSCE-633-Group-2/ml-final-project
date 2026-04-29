@@ -17,13 +17,9 @@ def preprocess_text(text):
     if isinstance(text, str):
         # Convert to lowercase
         text = text.lower()
-        # Remove punctuation
-        text = re.sub(f'[{string.punctuation}]', '', text)
-        # Remove numbers
-        text = re.sub(r'\d+', '', text)
-        # Use a tokenizer that does not require external punkt resources
+        # Keep numeric values and unit tokens; drop only standalone punctuation.
         tokens = wordpunct_tokenize(text)
-        return tokens
+        return [token for token in tokens if re.search(r"\w", token)]
     return []
 
 class Vocabulary:

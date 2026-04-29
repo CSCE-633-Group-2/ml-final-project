@@ -35,7 +35,67 @@ class RNN(nn.Module):
         out = self.fc(last_output)
         return out
 
-def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=5, save_model_path="./data/models/rnn.pt"):
+
+def compute_pos_weight(iterator):
+    positive_count = 0
+    negative_count = 0
+    for batch in iterator:
+        labels = batch[1].view(-1)
+        positive_count += (labels == 1).sum().item()
+        negative_count += (labels == 0).sum().item()
+
+    positive_count = max(positive_count, 1)
+    return torch.tensor([negative_count / positive_count], dtype=torch.float32)
+
+def collect_predictions(model, iterator, device):
+    all_logits = []
+    all_labels = []
+    model.eval()
+    with torch.no_grad():
+        for indices, labels in iterator:
+            indices = indices.to(device)
+            labels = labels.to(device).squeeze(1)
+            lengths = (indices != 0).sum(dim=1)
+            logits = model(indices, lengths).squeeze(1)
+            all_logits.append(logits.detach().cpu())
+            all_labels.append(labels.detach().cpu())
+
+    if not all_logits:
+        return torch.empty(0), torch.empty(0)
+
+    return torch.cat(all_logits), torch.cat(all_labels)
+
+def find_best_threshold(model, iterator, device, metric="accuracy"):
+    logits, labels = collect_predictions(model, iterator, device)
+    if logits.numel() == 0:
+        return 0.5, 0.0, 0.0
+
+    probabilities = torch.sigmoid(logits)
+    best_threshold = 0.5
+    best_score = -1.0
+    best_accuracy = 0.0
+    best_f1 = 0.0
+
+    for threshold in np.linspace(0.05, 0.95, 91):
+        predicted_labels = (probabilities >= threshold).long()
+        true_positive = ((predicted_labels == 1) & (labels == 1)).sum().item()
+        false_positive = ((predicted_labels == 1) & (labels == 0)).sum().item()
+        false_negative = ((predicted_labels == 0) & (labels == 1)).sum().item()
+        accuracy = (predicted_labels == labels).float().mean().item()
+        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) > 0 else 0.0
+        recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative) > 0 else 0.0
+        f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
+
+        score = accuracy if metric == "accuracy" else f1
+        if score > best_score:
+            best_score = score
+            best_threshold = float(threshold)
+            best_accuracy = accuracy
+            best_f1 = f1
+
+    return best_threshold, best_accuracy, best_f1
+
+def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=5, save_model_path="./data/models/rnn.pt", grad_clip=1.0):
     train_loss = []
     train_acc = []
     val_loss = []
@@ -56,6 +116,7 @@ def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=
             predictions = model(indices, lengths).squeeze(1)
             loss = criterion(predictions, labels.float())
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
             optimizer.step()
             epoch_batch_loss.append(loss.item())
 
@@ -83,7 +144,7 @@ def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=
 
     return train_loss, train_acc, val_loss, val_acc
 
-def evaluate(model, iterator, criterion, device, return_accuracy=False, save_predictions=False, output_path="./data/predictions/test01-pred.csv"):
+def evaluate(model, iterator, criterion, device, return_accuracy=False, save_predictions=False, output_path="./data/predictions/test01-pred.csv", threshold=0.5):
     test_loss = []
     correct = 0
     total = 0
@@ -96,7 +157,7 @@ def evaluate(model, iterator, criterion, device, return_accuracy=False, save_pre
                 indices = indices.to(device)
                 lengths = (indices != 0).sum(dim=1)
                 predictions = model(indices, lengths).squeeze(1)
-                predicted_labels = (torch.sigmoid(predictions) >= 0.5).long()
+                predicted_labels = (torch.sigmoid(predictions) >= threshold).long()
                 predictions_list.extend(predicted_labels.cpu().numpy())
         pred_df = pd.DataFrame({'row_id': range(len(predictions_list)), 'prediction': predictions_list})
         pred_df.to_csv(output_path, index=False)
@@ -110,7 +171,7 @@ def evaluate(model, iterator, criterion, device, return_accuracy=False, save_pre
                 loss = criterion(predictions, labels.float())
                 test_loss.append(loss.item())
 
-                predicted_labels = (torch.sigmoid(predictions) >= 0.5).long()
+                predicted_labels = (torch.sigmoid(predictions) >= threshold).long()
                 correct += (predicted_labels == labels.long()).sum().item()
                 total += labels.size(0)
         
@@ -147,7 +208,7 @@ def parse_args():
     parser.add_argument("--test1-data-path", type=str, default="./data/test01_text_only.csv")
     parser.add_argument("--test2-data-path", type=str, default="./data/test02_text_only.csv")
     parser.add_argument("--test3-data-path", type=str, default="./data/test03_text_only.csv")
-    parser.add_argument("--test1-label-path", type=str, default="./data/test01-pred(example).csv")
+    parser.add_argument("--test1-label-path", type=str, default="./data/test01-pred.csv")
     parser.add_argument("--model-path", type=str, default="./data/models/rnn.pt")
     parser.add_argument("--plot-path", type=str, default="./data/plots/loss_plot_rnn.png")
     parser.add_argument("--test1-output-path", type=str, default="./data/predictions/test01-pred.csv")
@@ -188,7 +249,7 @@ def main():
     )
 
     # Print arguments for verification
-    print("Arguments:")
+    print("\nArguments:\n")
     for arg in vars(args):
         print(f"{arg}: {getattr(args, arg)}")   
 
@@ -199,22 +260,29 @@ def main():
 
     model = RNN(vocab_size=vocab.size, embedding_dim=args.embedding_dim, hidden_dim=args.hidden_dim, output_dim=1).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    criterion = nn.BCEWithLogitsLoss()
-    train_loss, train_acc, val_loss, val_acc = train(model, train_loader, optimizer, criterion, device, val_loader, num_epochs=args.epochs, save_model_path=args.model_path)
-    test_loss, test_acc = evaluate(model, test_loader, criterion, device, return_accuracy=True)
+    pos_weight = compute_pos_weight(train_loader).to(device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    print(f"Using pos_weight={pos_weight.item():.4f}")
+
+    train_loss, train_acc, val_loss, val_acc = train(model, train_loader, optimizer, criterion, device, val_loader, num_epochs=args.epochs, save_model_path=args.model_path, grad_clip=1.0)
+    best_threshold, best_val_acc, best_val_f1 = find_best_threshold(model, val_loader, device, metric="f1")
+    test_loss, test_acc = evaluate(model, test_loader, criterion, device, return_accuracy=True, threshold=best_threshold)
     plot_loss(train_loss, val_loss, title="RNN Loss Curves", save_path=args.plot_path)
 
-    print(f"Best Validation Accuracy: {max(val_acc):.4f}")
+    print(f"Best Validation Accuracy (0.5 threshold): {max(val_acc):.4f}")
+    print(f"Best Validation Threshold: {best_threshold:.2f}")
+    print(f"Best Validation Accuracy (tuned threshold): {best_val_acc:.4f}")
+    print(f"Best Validation F1 (tuned threshold): {best_val_f1:.4f}")
     print(f"Test Accuracy: {test_acc:.4f}")
 
     test_1_loader = load_and_preprocess_data(args.test1_data_path, data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=args.batch_size, max_len=args.max_len)
-    evaluate(model, test_1_loader, criterion, device, save_predictions=True, output_path=args.test1_output_path)
+    evaluate(model, test_1_loader, criterion, device, save_predictions=True, output_path=args.test1_output_path, threshold=best_threshold)
 
     test_2_loader = load_and_preprocess_data(args.test2_data_path, data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=args.batch_size, max_len=args.max_len)
-    evaluate(model, test_2_loader, criterion, device, save_predictions=True, output_path=args.test2_output_path)
+    evaluate(model, test_2_loader, criterion, device, save_predictions=True, output_path=args.test2_output_path, threshold=best_threshold)
 
     test_3_loader = load_and_preprocess_data(args.test3_data_path, data_type='test', shared_vocab=vocab, model_type='rnn', batch_size=args.batch_size, max_len=args.max_len)
-    evaluate(model, test_3_loader, criterion, device, save_predictions=True, output_path=args.test3_output_path)
+    evaluate(model, test_3_loader, criterion, device, save_predictions=True, output_path=args.test3_output_path, threshold=best_threshold)
 
     torch.save(model.state_dict(), args.model_path)
 
