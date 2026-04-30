@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 import pandas as pd 
 import nltk
 from nltk.tokenize import wordpunct_tokenize
@@ -141,7 +141,16 @@ def load_and_preprocess_data(data_path, data_type='train', model_type='lstm', sh
             f"Train samples: {len(train_df)}, Val samples: {len(val_df)}"
         )
 
-        train_loader = DataLoader(MIMICDataset(dataframe=train_df.reset_index(drop=True), vocabulary=vocab, max_len=max_len, is_training=True, model_type=model_type), batch_size=batch_size, shuffle=True)
+        labels = train_df['label'].values
+        class_counts = np.bincount(labels)
+        weights = 1.0 / class_counts[labels]
+        sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+
+        train_loader = DataLoader(
+            MIMICDataset(dataframe=train_df.reset_index(drop=True), vocabulary=vocab, max_len=max_len, is_training=True, model_type=model_type),
+            batch_size=batch_size,
+            sampler=sampler,
+        )
         val_loader = DataLoader(MIMICDataset(dataframe=val_df.reset_index(drop=True), vocabulary=vocab, max_len=max_len, is_training=False, model_type=model_type), batch_size=batch_size, shuffle=False)
 
         return train_loader, val_loader, vocab
