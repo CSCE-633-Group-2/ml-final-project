@@ -115,7 +115,7 @@ def find_best_threshold(model, iterator, device):
 
     return best_threshold, best_score
 
-def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=5, save_model_path="./data/models/rnn.pt", grad_clip=1.0):
+def train(model, iterator, optimizer, scheduler, criterion, device, val_loader, num_epochs=5, save_model_path="./data/models/rnn.pt", grad_clip=1.0):
     train_loss = []
     train_acc = []
     val_loss = []
@@ -144,6 +144,7 @@ def train(model, iterator, optimizer, criterion, device, val_loader, num_epochs=
             epoch_correct += (predicted_labels == labels.long()).sum().item()
             epoch_total += labels.size(0)
 
+        scheduler.step()
         train_loss.append(float(np.mean(epoch_batch_loss)))
         train_acc.append(float(epoch_correct / epoch_total) if epoch_total > 0 else 0.0)
 
@@ -223,6 +224,8 @@ def parse_args():
     parser.add_argument("--hidden-dim", type=int, default=128)
     parser.add_argument("--num-layers", type=int, default=2)
     parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--weight-decay", type=float, default=0.01)
+    parser.add_argument("--eta-min", type=float, default=1e-5)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--train-data-path", type=str, default="./data/mimiciii_training_data.csv")
@@ -284,13 +287,22 @@ def main():
     if isinstance(embedding_matrix, torch.Tensor):
         embedding_matrix = embedding_matrix.to(dtype=torch.float32, device=device)
     model = RNN(vocab_size=vocab.size, num_layers=args.num_layers, embedding_dim=args.embedding_dim, hidden_dim=args.hidden_dim, output_dim=1, embedding_matrix=embedding_matrix).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=args.lr,
+        weight_decay=args.weight_decay
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=args.epochs,
+        eta_min=args.eta_min
+    )
     # pos_weight = compute_pos_weight(train_loader).to(device)
     # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     criterion = nn.BCEWithLogitsLoss()
     # print(f"Using pos_weight={pos_weight.item():.4f}")
 
-    train_loss, train_acc, val_loss, val_acc = train(model, train_loader, optimizer, criterion, device, val_loader, num_epochs=args.epochs, save_model_path=args.model_path, grad_clip=1.0)
+    train_loss, train_acc, val_loss, val_acc = train(model, train_loader, optimizer, scheduler, criterion, device, val_loader, num_epochs=args.epochs, save_model_path=args.model_path, grad_clip=1.0)
     best_threshold, best_val_score = find_best_threshold(model, val_loader, device)
     # test_loss, test_acc = evaluate(model, test_loader, criterion, device, return_accuracy=True, threshold=best_threshold)
     plot_loss(train_loss, val_loss, title="RNN Loss Curves", save_path=args.plot_path)
