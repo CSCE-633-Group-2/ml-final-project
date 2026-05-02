@@ -37,6 +37,7 @@ torch==2.11.0
 tqdm==4.67.3
 triton==3.6.0
 typing_extensions==4.15.0
+transformers==4.52.4
 click==8.3.2
 contourpy==1.3.3
 cuda-bindings==13.2.0
