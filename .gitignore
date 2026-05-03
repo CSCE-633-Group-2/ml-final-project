@@ -206,5 +206,16 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Exclude trained models
-data/models/*.pt
+# Exclude trained models, plots and large training files
+data/models/*
+data/plots/*
+data/train/*
+!data/train/train_data-text_and_labels.csv
+
+# Exclude MIMIC data
+data/train/course-plus-mimic-data.csv
+data/train/mimic-data.csv.gz
+data/train/final-train-data.csv
+
+# Exclude installed packages
+PlotNeuralNet
