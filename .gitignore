@@ -212,7 +212,7 @@ data/models/*.pt
 # Exclude data files
 scripts/data_downloader.sh
 data/physionet.org/*
-data/mimiciii_training_data.csv
+data/mimiciii_training_data*.csv
 
 # Logs
 *.out

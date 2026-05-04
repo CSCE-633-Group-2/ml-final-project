@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 
 import pandas as pd
 from tqdm import tqdm
@@ -8,11 +9,61 @@ def process_notes_to_dataset(
     noteevents_path,
     diagnoses_icd_path,
     procedures_icd_path,
+    d_icd_diagnoses_path,
+    d_icd_procedures_path,
     output_path,
     chunksize=25000,
     max_rows=None,
 ):
     """Build row_id,text,label output from note events in a single dataframe pass."""
+    try:
+        import nltk
+        from nltk.corpus import stopwords as nltk_stopwords
+
+        try:
+            stopwords = set(nltk_stopwords.words("english"))
+        except LookupError:
+            nltk.download("stopwords", quiet=True)
+            stopwords = set(nltk_stopwords.words("english"))
+    except Exception:
+        stopwords = {
+            "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "he", "in", "is",
+            "it", "its", "of", "on", "or", "that", "the", "to", "was", "were", "with", "without", "not",
+            "no", "yes", "this", "these", "those", "there", "their", "his", "her", "she", "they", "them",
+            "you", "your", "we", "our", "but", "if", "into", "out", "over", "under", "then", "than",
+            "which", "who", "whom", "when", "where", "why", "how", "what",
+        }
+    min_token_len = 5
+
+    def tokenize(text):
+        return [
+            token
+            for token in re.findall(r"[a-z0-9]+", str(text).lower())
+            if len(token) >= min_token_len and token not in stopwords
+        ]
+
+    def split_text_into_chunks(text, chunk_size=128):
+        words = text.split()
+        if not words:
+            return [""]
+        return [" ".join(words[i : i + chunk_size]) for i in range(0, len(words), chunk_size)]
+
+    def build_hadm_token_map(diagnoses_df, procedures_df, d_diag_df, d_proc_df):
+        hadm_tokens = {}
+
+        def add_group_tokens(df, d_df):
+            joined = df.merge(d_df, on="ICD9_CODE", how="left")
+            for hadm_id, group in joined.groupby("HADM_ID"):
+                tokens = set()
+                for text in pd.concat([group["SHORT_TITLE"], group["LONG_TITLE"]], ignore_index=True):
+                    tokens.update(tokenize(text))
+                if tokens:
+                    hadm_tokens.setdefault(hadm_id, set()).update(tokens)
+
+        add_group_tokens(diagnoses_df, d_diag_df)
+        add_group_tokens(procedures_df, d_proc_df)
+        return hadm_tokens
+
     notes_df = pd.read_csv(
         noteevents_path,
         compression="gzip",
@@ -24,7 +75,7 @@ def process_notes_to_dataset(
     diagnoses_df = pd.read_csv(
         diagnoses_icd_path,
         compression="gzip",
-        usecols=["SUBJECT_ID", "HADM_ID"],
+        usecols=["SUBJECT_ID", "HADM_ID", "ICD9_CODE"],
         dtype={"SUBJECT_ID": "Int64", "HADM_ID": "Int64"},
         low_memory=False,
     ).drop_duplicates().reset_index(drop=True)
@@ -32,10 +83,24 @@ def process_notes_to_dataset(
     procedures_df = pd.read_csv(
         procedures_icd_path,
         compression="gzip",
-        usecols=["SUBJECT_ID", "HADM_ID"],
+        usecols=["SUBJECT_ID", "HADM_ID", "ICD9_CODE"],
         dtype={"SUBJECT_ID": "Int64", "HADM_ID": "Int64"},
         low_memory=False,
     ).drop_duplicates().reset_index(drop=True)
+
+    d_icd_diagnoses_df = pd.read_csv(
+        d_icd_diagnoses_path,
+        compression="gzip",
+        usecols=["ICD9_CODE", "SHORT_TITLE", "LONG_TITLE"],
+        low_memory=False,
+    )
+
+    d_icd_procedures_df = pd.read_csv(
+        d_icd_procedures_path,
+        compression="gzip",
+        usecols=["ICD9_CODE", "SHORT_TITLE", "LONG_TITLE"],
+        low_memory=False,
+    )
 
     notes_df["TEXT"] = notes_df["TEXT"].fillna("")
 
@@ -46,9 +111,36 @@ def process_notes_to_dataset(
     mask = note_index.isin(procedure_index) | note_index.isin(diagnosis_index)
     notes_df["label"] = mask.astype(int)
 
-    notes_df_filtered_renamed = notes_df[["ROW_ID", "TEXT", "label"]].rename(
-        {"ROW_ID": "row_id", "TEXT": "text"}, axis=1
+    notes_df_filtered_renamed = notes_df[["ROW_ID", "HADM_ID", "TEXT", "label"]].rename(
+        {"ROW_ID": "row_id", "TEXT": "text", "HADM_ID": "hadm_id"}, axis=1
     )
+
+    hadm_token_map = build_hadm_token_map(
+        diagnoses_df,
+        procedures_df,
+        d_icd_diagnoses_df,
+        d_icd_procedures_df,
+    )
+
+    expanded_rows = []
+    for _, row in notes_df_filtered_renamed.iterrows():
+        chunks = split_text_into_chunks(row["text"], chunk_size=128)
+        hadm_tokens = hadm_token_map.get(row["hadm_id"], set())
+        for chunk in chunks:
+            if row["label"] == 0:
+                chunk_label = 0
+            else:
+                chunk_tokens = set(tokenize(chunk))
+                chunk_label = 1 if hadm_tokens and (chunk_tokens & hadm_tokens) else 0
+            expanded_rows.append(
+                {
+                    "row_id": row["row_id"],
+                    "text": chunk,
+                    "label": chunk_label,
+                }
+            )
+
+    notes_df_filtered_renamed = pd.DataFrame(expanded_rows)
 
     if max_rows is not None:
         notes_df_filtered_renamed = notes_df_filtered_renamed.head(max_rows)
@@ -88,6 +180,16 @@ def parse_args():
         help="Path to procedures assignment source",
     )
     parser.add_argument(
+        "--d-icd-diagnoses-path",
+        default="path/to/d_icd_diagnoses",
+        help="Path to ICD diagnoses dictionary source",
+    )
+    parser.add_argument(
+        "--d-icd-procedures-path",
+        default="path/to/d_icd_procedures",
+        help="Path to ICD procedures dictionary source",
+    )
+    parser.add_argument(
         "--chunksize",
         type=int,
         default=25000,
@@ -120,6 +222,8 @@ def main():
         noteevents_path=args.noteevents_path,
         diagnoses_icd_path=args.diagnoses_icd_path,
         procedures_icd_path=args.procedures_icd_path,
+        d_icd_diagnoses_path=args.d_icd_diagnoses_path,
+        d_icd_procedures_path=args.d_icd_procedures_path,
         output_path=args.output_path,
         chunksize=args.chunksize,
         max_rows=args.max_rows,
